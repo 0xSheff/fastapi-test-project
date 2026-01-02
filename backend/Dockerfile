@@ -13,8 +13,9 @@ RUN pip install --upgrade pip \
     && poetry config virtualenvs.create false
 
 COPY pyproject.toml poetry.lock /app/
-RUN poetry install --no-ansi --no-root --no-interaction
+RUN poetry lock && poetry install --no-ansi --no-root --no-interaction
 
-COPY /app /app
+COPY app /app/app
+COPY tests /app/tests
 
 EXPOSE 12321
