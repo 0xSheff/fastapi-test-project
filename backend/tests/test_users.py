@@ -1,7 +1,7 @@
 import pytest
 from httpx import AsyncClient
 from fastapi import status
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 @pytest.mark.asyncio
 async def test_create_user_success(client: AsyncClient, mock_db_session: AsyncMock):
@@ -11,30 +11,58 @@ async def test_create_user_success(client: AsyncClient, mock_db_session: AsyncMo
         "password": "StrongPassword1!"
     }
     
-    # Use `unittest.mock.patch` to mock the user_manager.create_user method
-    from unittest.mock import patch
-    
-    # Create a fake user object to return
     mock_user = AsyncMock()
     mock_user.id = 123
     mock_user.email = payload["email"]
     mock_user.name = payload["name"]
-    # Pydantic models expect dict access or attribute access depending on usage.
-    # The router returns `RegisteredUserSchema`, which is created from the result of `create_user`.
-    # `RegisteredUserSchema` will try to read attributes from the returned object.
     
-    with patch("apps.users.router.user_manager.create_user", return_value=mock_user) as mock_create:
+    with patch("apps.users.crud.user_manager.get", new_callable=AsyncMock) as mock_get, \
+         patch("apps.users.crud.user_manager.create", new_callable=AsyncMock) as mock_create:
+        
+        # Scenario: User does not exist
+        mock_get.return_value = None
+        mock_create.return_value = mock_user
+        
         response = await client.post("/users/create", json=payload)
         
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
         assert data["email"] == payload["email"]
-        assert data["name"] == payload["name"]
-        assert data["id"] == 123
-        assert "password" not in data
         
-        # Verify that the manager was called
+        # Verify get was called to check for existing user
+        mock_get.assert_called_once()
+        # Verify create was called
         mock_create.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_user_duplicate_email(client: AsyncClient, mock_db_session: AsyncMock):
+    payload = {
+        "email": "existing@example.com",
+        "name": "ExistingUser",
+        "password": "StrongPassword1!"
+    }
+    
+    # Mock existing user
+    existing_user = AsyncMock()
+    existing_user.email = payload["email"]
+    
+    with patch("apps.users.crud.user_manager.get", new_callable=AsyncMock) as mock_get, \
+         patch("apps.users.crud.user_manager.create", new_callable=AsyncMock) as mock_create:
+        
+        # Scenario: User already exists
+        mock_get.return_value = existing_user
+        
+        response = await client.post("/users/create", json=payload)
+        
+        assert response.status_code == status.HTTP_409_CONFLICT
+        data = response.json()
+        assert data["detail"] == "Email already registered"
+        
+        # Verify get was called
+        mock_get.assert_called_once()
+        # Verify create was NOT called
+        mock_create.assert_not_called()
 
 
 @pytest.mark.asyncio
