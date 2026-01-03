@@ -1,13 +1,17 @@
 DC = docker compose
 BACKEND_CONTAINER = backend1
 
-PHONY: up down build shell test
+PHONY: up down restart build shell test
 
 up:
 	${DC} up -d --remove-orphans
 
 down:
 	${DC} down
+
+restart:
+	${DC} down
+	${DC} up -d --remove-orphans
 
 build:
 	${DC} build
