@@ -1,4 +1,5 @@
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings
 
 
@@ -20,7 +21,7 @@ class DbSettings(BaseSettings):
 
 
 class Settings(CoreSettings, DbSettings):
-    pass
+    SENTRY_DSN: str
 
 
 @lru_cache()
