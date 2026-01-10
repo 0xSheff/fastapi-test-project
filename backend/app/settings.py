@@ -22,6 +22,8 @@ class DbSettings(BaseSettings):
 
 class Settings(CoreSettings, DbSettings):
     SENTRY_DSN: str
+    BETTER_STACK_TOKEN: str
+    BETTER_STACK_URL: str
 
 
 @lru_cache()
