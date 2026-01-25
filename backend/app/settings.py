@@ -20,7 +20,14 @@ class DbSettings(BaseSettings):
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
 
-class Settings(CoreSettings, DbSettings):
+class JWTSettings(BaseSettings):
+    JWT_SECRET: str
+    JWT_ALGORITHM: str
+    ACCESS_TOKEN_TIME_MINUTES: int = 5
+    REFRESH_TOKEN_TIME_MINUTES: int = 60
+
+
+class Settings(CoreSettings, DbSettings, JWTSettings):
     SENTRY_DSN: str
     BETTER_STACK_TOKEN: str
     BETTER_STACK_URL: str
