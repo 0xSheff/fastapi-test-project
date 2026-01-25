@@ -1,9 +1,8 @@
 from typing import Annotated
 
-from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
-from password_strength import PasswordPolicy
-
 from apps.core.schemas import IdSchema
+from password_strength import PasswordPolicy
+from pydantic import BaseModel, EmailStr, Field, StringConstraints, field_validator
 
 
 class UserPasswordSchema(BaseModel):
@@ -27,18 +26,28 @@ class UserPasswordSchema(BaseModel):
         for error in errors:
             error_name = error.name()
             if error_name == "length":
-                error_messages.append(f"Password must be at least {error.length} characters")
+                error_messages.append(
+                    f"Password must be at least {error.length} characters"
+                )
             elif error_name == "uppercase":
-                error_messages.append(f"Password must contain at least {error.count} uppercase letter(s)")
+                error_messages.append(
+                    f"Password must contain at least {error.count} uppercase letter(s)"
+                )
             elif error_name == "numbers":
-                error_messages.append(f"Password must contain at least {error.count} didit(s)")
+                error_messages.append(
+                    f"Password must contain at least {error.count} didit(s)"
+                )
             elif error_name == "special":
-                error_messages.append(f"Password must contain at least {error.count} special character(s)")
+                error_messages.append(
+                    f"Password must contain at least {error.count} special character(s)"
+                )
         raise ValueError("; ".join(error_messages))
 
 
 class BaseUserSchema(BaseModel):
-    email: EmailStr = Field(description="Email of the user", examples=["example@mail.com"])
+    email: EmailStr = Field(
+        description="Email of the user", examples=["example@mail.com"]
+    )
     name: Annotated[
         str,
         StringConstraints(
@@ -46,7 +55,7 @@ class BaseUserSchema(BaseModel):
             strip_whitespace=True,
             min_length=3,
             max_length=50,
-        )
+        ),
     ] = Field(examples=["Casper_19"])
 
 
@@ -55,4 +64,4 @@ class RegisterUserSchema(BaseUserSchema, UserPasswordSchema):
 
 
 class RegisteredUserSchema(IdSchema, BaseUserSchema):
-    pass
+    model_config = {"from_attributes": True}
