@@ -1,5 +1,6 @@
-from apps.auth.dependencies import get_admin_user, get_current_user
+from apps.auth.dependencies import get_current_user, require_permissions
 from apps.core.dependencies import get_async_session
+from apps.users.constants import UserPermissionsEnum
 from apps.users.crud import user_manager
 from apps.users.models import User
 from apps.users.schemas import RegisteredUserSchema, RegisterUserSchema
@@ -22,7 +23,10 @@ async def get_my_info(user: User = Depends(get_current_user)) -> RegisteredUserS
     return RegisteredUserSchema.model_validate(user)
 
 
-@users_router.get("/{id}", dependencies=[Depends(get_admin_user)])
+@users_router.get(
+    "/{id}",
+    dependencies=[Depends(require_permissions([UserPermissionsEnum.CAN_SEE_USERS]))],
+)
 async def get_user(
     user_id: int = Path(..., description="The id of the user", ge=1, alias="id"),
     session: AsyncSession = Depends(get_async_session),
