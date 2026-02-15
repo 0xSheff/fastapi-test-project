@@ -27,7 +27,15 @@ class JWTSettings(BaseSettings):
     REFRESH_TOKEN_TIME_MINUTES: int = 60
 
 
-class Settings(CoreSettings, DbSettings, JWTSettings):
+class RedisSettings(BaseSettings):
+    REDIS_HOST: str
+    REDIS_PORT: int
+    REDIS_USER: str = ""
+    REDIS_PASSWORD: str = ""
+    REDIS_DATABASE: int = 0
+
+
+class Settings(CoreSettings, DbSettings, JWTSettings, RedisSettings):
     SENTRY_DSN: str
     BETTER_STACK_TOKEN: str
     BETTER_STACK_URL: str
