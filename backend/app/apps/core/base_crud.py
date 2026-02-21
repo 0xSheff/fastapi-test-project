@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
-
-from fastapi import HTTPException, status
 from typing import Any, Optional
 
+from apps.core.base_models import Base
+from fastapi import HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy import select, update
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
-from sqlalchemy import select
-
-from apps.core.base_models import Base
 
 
 class BaseCRUDManager(ABC):
@@ -27,10 +27,54 @@ class BaseCRUDManager(ABC):
             await session.rollback()
             raise HTTPException(
                 detail=f"Error while creating {self.model} instance with {kwargs}, {e}",
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    async def get(self, *, session: AsyncSession, field_value: Any, field: InstrumentedAttribute) -> Optional[Base]:
-        query = select(self.model).filter(field==field_value)
+    async def get(
+        self, *, session: AsyncSession, field_value: Any, field: InstrumentedAttribute
+    ) -> Optional[Base]:
+        query = select(self.model).filter(field == field_value)
         result = await session.execute(query)
         return result.scalar_one_or_none()
+
+    async def patch(
+        self,
+        instance_id: int,
+        session: AsyncSession,
+        data_to_patch: BaseModel,
+        exclude_unset: bool = True,
+    ) -> Base:
+        query = (
+            select(self.model)
+            .filter(self.model.id == instance_id)
+            .with_for_update(nowait=True)
+        )
+        item = None
+        try:
+            result = await session.execute(query)
+            item = result.scalar_one_or_none()
+        except DBAPIError:
+            raise HTTPException(
+                detail="Row locked, try again later", status_code=status.HTTP_423_LOCKED
+            )
+
+        if not item:
+            raise HTTPException(
+                detail="Not found", status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        data_for_updating: dict = data_to_patch.model_dump(
+            exclude={"id"}, exclude_unset=exclude_unset
+        )
+        if not data_for_updating:
+            return item
+
+        query = (
+            update(self.model)
+            .where(self.model.id == instance_id)
+            .values(**data_for_updating)
+        )
+        await session.execute(query)
+        await session.commit()
+        await session.refresh(item)
+        return item

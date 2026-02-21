@@ -1,3 +1,4 @@
+import datetime
 from enum import StrEnum
 from typing import Callable
 
@@ -26,6 +27,16 @@ async def get_current_user(
             detail="User with given email not found",
             status_code=status.HTTP_404_NOT_FOUND,
         )
+
+    if user.use_token_since:
+        token_issued_at = datetime.datetime.fromtimestamp(
+            payload["iat"], tz=datetime.timezone.utc
+        )
+        if user.use_token_since > token_issued_at:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired. Please re-authenticate.",
+            )
 
     return user
 

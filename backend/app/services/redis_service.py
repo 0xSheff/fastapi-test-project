@@ -1,4 +1,4 @@
-import datetime as dt
+import datetime
 from contextlib import asynccontextmanager
 
 import redis.asyncio as redis
@@ -25,7 +25,7 @@ class RedisService:
 
     async def set_cache(self, key: str, value: str | int, ttl: int = 60):
         async with self.get_redis() as _redis:
-            await _redis.setex(key, dt.timedelta(seconds=ttl), value)
+            await _redis.setex(key, datetime.timedelta(seconds=ttl), value)
 
     async def get_cache(self, key: str):
         async with self.get_redis() as _redis:

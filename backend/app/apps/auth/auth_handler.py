@@ -72,7 +72,7 @@ class AuthHandler:
         )
 
     async def generate_token(self, payload: dict, expire_minutes: int) -> str:
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(datetime.timezone.utc)
         token_expires_at = datetime.timedelta(minutes=expire_minutes)
         time_payload = {"exp": now + token_expires_at, "iat": now}
         payload.update(time_payload)
@@ -84,7 +84,6 @@ class AuthHandler:
     async def decode_token(self, token: str) -> dict:
         try:
             payload = jwt.decode(token, self.jwt_secret, [self.jwt_algorithm])
-            payload["iat"] = datetime.datetime.fromtimestamp(payload.get("iat") or 0)
             return payload
         except jwt.ExpiredSignatureError:
             raise HTTPException(
@@ -99,6 +98,12 @@ class AuthHandler:
         self, refresh_token: str, session: AsyncSession
     ) -> LoginResponseSchema:
         payload = await self.decode_token(refresh_token)
+        token_key = payload.get("key")
+        if not token_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No refresh token provided",
+            )
 
         stored_refresh = await redis_service.get_cache(payload["key"])
         if not stored_refresh:
@@ -111,10 +116,21 @@ class AuthHandler:
         user = await user_manager.get(
             session=session, field_value=int(payload["sub"]), field=User.id
         )
+
         if not user:
             raise HTTPException(
                 detail="User not found", status_code=status.HTTP_404_NOT_FOUND
             )
+
+        if user.use_token_since:
+            token_issued_at = datetime.datetime.fromtimestamp(
+                payload["iat"], tz=datetime.timezone.utc
+            )
+            if user.use_token_since > token_issued_at:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Session expired. Please re-authenticate.",
+                )
 
         token_pair = await self.generate_tokens(user)
 
